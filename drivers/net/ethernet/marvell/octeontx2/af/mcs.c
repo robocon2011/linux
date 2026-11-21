@@ -314,7 +314,7 @@ int mcs_clear_all_stats(struct mcs *mcs, u16 pcifunc, int dir)
 	}
 
 	/* Clear SC stats */
-	for (id = 0; id < map->secy.max; id++) {
+	for (id = 0; id < map->sc.max; id++) {
 		if (map->sc2pf_map[id] != pcifunc)
 			continue;
 		mcs_clear_stats(mcs, MCS_SC_STATS, id, dir);
@@ -738,7 +738,7 @@ int mcs_free_all_rsrc(struct mcs *mcs, int dir, u16 pcifunc)
 	}
 
 	/* free sc entries */
-	for (id = 0; id < map->secy.max; id++) {
+	for (id = 0; id < map->sc.max; id++) {
 		if (map->sc2pf_map[id] != pcifunc)
 			continue;
 		mcs_free_rsrc(&map->sc, map->sc2pf_map, id, pcifunc);
@@ -1520,11 +1520,11 @@ static int mcs_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	int lmac, err = 0;
 	struct mcs *mcs;
 
-	mcs = devm_kzalloc(dev, sizeof(*mcs), GFP_KERNEL);
+	mcs = devm_kzalloc_obj(dev, *mcs);
 	if (!mcs)
 		return -ENOMEM;
 
-	mcs->hw = devm_kzalloc(dev, sizeof(struct hwinfo), GFP_KERNEL);
+	mcs->hw = devm_kzalloc_obj(dev, struct hwinfo);
 	if (!mcs->hw)
 		return -ENOMEM;
 

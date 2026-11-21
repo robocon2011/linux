@@ -324,12 +324,15 @@ static void xe_i2c_remove(void *data)
 	xe_i2c_irq_reset(xe);
 	xe_amc_exit(i2c);
 
+	/* Stop the notifier from arming the client work before teardown. */
+	bus_unregister_notifier(&i2c_bus_type, &i2c->bus_notifier);
+	cancel_work_sync(&i2c->work);
+
 	for (i = 0; i < XE_I2C_MAX_CLIENTS; i++) {
 		i2c_unregister_device(i2c->client[i]);
 		i2c->client[i] = NULL;
 	}
 
-	bus_unregister_notifier(&i2c_bus_type, &i2c->bus_notifier);
 	xe_i2c_unregister_adapter(i2c);
 	xe->i2c = NULL;
 }
@@ -357,7 +360,7 @@ int xe_i2c_probe(struct xe_device *xe)
 	if (ep.cookie != XE_I2C_EP_COOKIE_DEVICE)
 		return 0;
 
-	i2c = devm_kzalloc(drm_dev, sizeof(*i2c), GFP_KERNEL);
+	i2c = devm_kzalloc_obj(drm_dev, *i2c);
 	if (!i2c)
 		return -ENOMEM;
 

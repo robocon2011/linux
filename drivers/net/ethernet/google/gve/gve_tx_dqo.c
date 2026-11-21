@@ -360,9 +360,8 @@ static int gve_tx_alloc_ring_dqo(struct gve_priv *priv,
 	/* Only alloc xsk pool for XDP queues */
 	if (idx >= cfg->qcfg->num_queues && cfg->num_xdp_rings) {
 		tx->dqo.xsk_reorder_queue =
-			kvcalloc(tx->dqo.complq_mask + 1,
-				 sizeof(tx->dqo.xsk_reorder_queue[0]),
-				 GFP_KERNEL);
+			kvzalloc_objs(tx->dqo.xsk_reorder_queue[0],
+				      tx->dqo.complq_mask + 1);
 		if (!tx->dqo.xsk_reorder_queue)
 			goto err;
 	}
@@ -595,25 +594,25 @@ static int gve_prep_tso(struct sk_buff *skb)
 	err = skb_cow_head(skb, 0);
 	if (err < 0)
 		return err;
+	shinfo = skb_shinfo(skb);
 
 	l4_start = skb_transport_offset(skb);
 	paylen = skb->len - l4_start;
 
-	switch (shinfo->gso_type) {
-	case SKB_GSO_TCPV4:
-	case SKB_GSO_TCPV6:
+	/* gso_type is a bitmask: SKB_GSO_DODGY, SKB_GSO_TCP_ECN and
+	 * SKB_GSO_TCP_FIXEDID may be set alongside the protocol bit.
+	 */
+	if (shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)) {
 		tcp = tcp_hdr(skb);
 		csum_replace_by_diff(&tcp->check,
 				     (__force __wsum)htonl(paylen));
 		header_len = skb_tcp_all_headers(skb);
-		break;
-	case SKB_GSO_UDP_L4:
+	} else if (shinfo->gso_type & SKB_GSO_UDP_L4) {
 		udp = udp_hdr(skb);
 		csum_replace_by_diff(&udp->check,
 				     (__force __wsum)htonl(paylen));
 		header_len = sizeof(struct udphdr) + l4_start;
-		break;
-	default:
+	} else {
 		return -EINVAL;
 	}
 
